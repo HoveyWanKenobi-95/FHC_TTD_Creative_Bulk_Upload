@@ -3,6 +3,11 @@ import pandas as pd
 import numpy as np
 from io import BytesIO
 from pyxlsb import open_workbook as open_xlsb
+import os
+import zipfile
+import openpyxl
+import xlsxwriter
+import shutil
 
 st.title('Fabric & Home Care Creative Bulk Upload from TTD Exports')
 
@@ -26,11 +31,24 @@ def to_excel(df1, df2):
     #worksheet = writer.sheets['Ad Groups','Budget Flights']
     #format1 = workbook.add_format({'num_format': '0.00'}) 
     #worksheet.set_column('A:A', None, format1)  
+    workbook = writer.book
+    for i in range(len(custom_props_df['name'].tolist())):
+        name = custom_props_df['name'].tolist()[i]
+        val = custom_props_df[custom_props_df.columns.tolist()[3]].tolist()[i]
+        workbook.set_custom_property(name, val)
+    workbook.close()
     writer.save()
     processed_data = output.getvalue()
     return processed_data 
 
 if ((c_d_file is not None) & (b_u_file is not None) & (lengths is not None)) :
+    targetdir = './/unzipexcel'
+    if os.path.exists(targetdir):
+            shutil.rmtree(targetdir)
+    os.mkdir(targetdir)
+    with zipfile.ZipFile(b_u_file,"r") as zip_ref:
+        zip_ref.extractall(targetdir)
+    custom_props_df = pd.read_xml(targetdir+'//docProps/custom.xml')
     cr_dtls = pd.read_csv(c_d_file)
     crtv_info = cr_dtls[['CreativeName','CreativeId']].drop_duplicates()
 
@@ -91,6 +109,7 @@ if ((c_d_file is not None) & (b_u_file is not None) & (lengths is not None)) :
     file_out_name = file_out_name.replace(':','-')
 
     df_xlsx = to_excel(bu_adgroups_final, bu_flights)
+
     st.download_button(label='📥 Download Bulk Upload Result',
                                 data=df_xlsx ,
                                 file_name= file_out_name)
